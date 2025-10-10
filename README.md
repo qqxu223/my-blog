@@ -1,27 +1,22 @@
-# My Worker App
+# 我的网站
 
-一个可以在Cloudflare Worker上运行的示例应用。
+一个现代化的个人网站，支持一键部署到 Cloudflare Workers。
 
 ## 🚀 一键部署
 
-点击下面的按钮，将立即在您的Cloudflare账户中部署此应用：
+点击下方按钮，立即将本网站部署到您的 Cloudflare Workers：
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/YOUR_USERNAME/YOUR_REPO)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/qqxu223/my-website)
 
-## 📋 手动部署
-
-如果您想手动部署：
-
-1. 安装 [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/)
-2. 克隆此仓库
-3. 运行 `wrangler deploy`
-
-## 🛠 开发
+## 📦 手动部署
 
 ```bash
-# 本地开发
-npm install
-wrangler dev
+# 克隆项目
+git clone https://github.com/qqxu223/my-website.git
+cd my-website
 
-# 部署
-wrangler deploy
+# 安装依赖
+npm install
+
+# 部署到 Cloudflare Workers
+npx wrangler deploy
