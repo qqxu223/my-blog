@@ -1,11 +1,11 @@
 {
-  "name": "my-worker-app",
+  "name": "my-website",
   "version": "1.0.0",
-  "description": "A Cloudflare Worker app with one-click deploy",
-  "main": "worker.js",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "dev": "your-dev-command",
+    "build": "your-build-command",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   },
   "devDependencies": {
     "wrangler": "^3.0.0"
