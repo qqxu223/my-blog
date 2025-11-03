@@ -16,54 +16,89 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
     
-    // 存储适配器：自动选择可用的存储方式
+    // IndexedDB 存储适配器
     const StorageAdapter = {
-      memoryStore: {},
+      dbName: 'PersonalBlogDB',
+      storeName: 'posts',
+      db: null,
       
-      isCloudflareStorage: () => typeof window.storage !== 'undefined',
+      async initDB() {
+        if (this.db) return this.db;
+        
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open(this.dbName, 1);
+          
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => {
+            this.db = request.result;
+            resolve(this.db);
+          };
+          
+          request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(this.storeName)) {
+              db.createObjectStore(this.storeName, { keyPath: 'key' });
+            }
+          };
+        });
+      },
       
       async get(key) {
-        if (this.isCloudflareStorage()) {
-          try {
-            return await window.storage.get(key);
-          } catch (e) {
-            return null;
-          }
-        } else {
-          const value = this.memoryStore[key];
-          return value ? { key, value } : null;
-        }
+        const db = await this.initDB();
+        return new Promise((resolve, reject) => {
+          const transaction = db.transaction([this.storeName], 'readonly');
+          const store = transaction.objectStore(this.storeName);
+          const request = store.get(key);
+          
+          request.onsuccess = () => {
+            const result = request.result;
+            resolve(result ? { key, value: result.value } : null);
+          };
+          request.onerror = () => reject(request.error);
+        });
       },
       
       async set(key, value) {
-        if (this.isCloudflareStorage()) {
-          return await window.storage.set(key, value);
-        } else {
-          this.memoryStore[key] = value;
-          return { key, value };
-        }
+        const db = await this.initDB();
+        return new Promise((resolve, reject) => {
+          const transaction = db.transaction([this.storeName], 'readwrite');
+          const store = transaction.objectStore(this.storeName);
+          const request = store.put({ key, value });
+          
+          request.onsuccess = () => resolve({ key, value });
+          request.onerror = () => reject(request.error);
+        });
       },
       
       async delete(key) {
-        if (this.isCloudflareStorage()) {
-          return await window.storage.delete(key);
-        } else {
-          delete this.memoryStore[key];
-          return { key, deleted: true };
-        }
+        const db = await this.initDB();
+        return new Promise((resolve, reject) => {
+          const transaction = db.transaction([this.storeName], 'readwrite');
+          const store = transaction.objectStore(this.storeName);
+          const request = store.delete(key);
+          
+          request.onsuccess = () => resolve({ key, deleted: true });
+          request.onerror = () => reject(request.error);
+        });
       },
       
       async list(prefix = '') {
-        if (this.isCloudflareStorage()) {
-          return await window.storage.list(prefix);
-        } else {
-          const keys = Object.keys(this.memoryStore).filter(k => k.startsWith(prefix));
-          return { keys };
-        }
+        const db = await this.initDB();
+        return new Promise((resolve, reject) => {
+          const transaction = db.transaction([this.storeName], 'readonly');
+          const store = transaction.objectStore(this.storeName);
+          const request = store.getAllKeys();
+          
+          request.onsuccess = () => {
+            const keys = request.result.filter(k => k.startsWith(prefix));
+            resolve({ keys });
+          };
+          request.onerror = () => reject(request.error);
+        });
       }
     };
     
-    // Lucide Icons 组件
+    // Icons
     const BookOpen = () => (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -129,12 +164,6 @@
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
       </svg>
     );
-    
-    const AlertCircle = () => (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    );
 
     function PersonalBlog() {
       const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -147,17 +176,10 @@
       const [loading, setLoading] = useState(true);
       const [searchQuery, setSearchQuery] = useState('');
       const [selectedTag, setSelectedTag] = useState('');
-      const [isLocalMode, setIsLocalMode] = useState(false);
 
       useEffect(() => {
-        checkStorageAndLoad();
+        loadPosts();
       }, []);
-
-      const checkStorageAndLoad = async () => {
-        const isLocal = !StorageAdapter.isCloudflareStorage();
-        setIsLocalMode(isLocal);
-        await loadPosts();
-      };
 
       const loadPosts = async () => {
         try {
@@ -178,7 +200,7 @@
             setPosts(loadedPosts);
           }
         } catch (error) {
-          console.log('First time loading');
+          console.log('First time loading', error);
           setPosts([]);
         }
         setLoading(false);
@@ -247,6 +269,7 @@
           setEditContent('');
           setEditTags('');
           setCurrentPost(null);
+          alert('保存成功！');
         } catch (error) {
           alert('保存失败: ' + error.message);
         }
@@ -373,19 +396,6 @@
 
       return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-          {isLocalMode && (
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-              <div className="flex items-center max-w-6xl mx-auto">
-                <AlertCircle />
-                <div className="ml-3">
-                  <p className="text-sm text-yellow-700">
-                    <strong>本地测试模式：</strong>数据仅保存在内存中，刷新页面后会丢失。部署到 Cloudflare Pages 后将自动使用持久化存储。
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-          
           <nav className="bg-white shadow-sm border-b">
             <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
               <div 
